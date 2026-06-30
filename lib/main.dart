@@ -70,6 +70,63 @@ class Transaksi {
 }
 
 // ============================================
+// MODEL BUDGET per kategori
+// ============================================
+class BudgetKategori {
+  final String nama;
+  final IconData icon;
+  final double terpakai; // sudah dipakai
+  final double batas;    // batas budget
+
+  const BudgetKategori({
+    required this.nama,
+    required this.icon,
+    required this.terpakai,
+    required this.batas,
+  });
+
+  double get persen => (terpakai / batas).clamp(0.0, 1.0);
+  bool get hampirHabis => persen >= 0.85;
+}
+
+// Data budget contoh
+final List<BudgetKategori> budgetList = [
+  const BudgetKategori(nama: 'Groceries', icon: Icons.shopping_cart, terpakai: 1200000, batas: 1500000),
+  const BudgetKategori(nama: 'Food & Drink', icon: Icons.restaurant, terpakai: 920000, batas: 1000000),
+  const BudgetKategori(nama: 'Transport', icon: Icons.directions_car, terpakai: 420000, batas: 800000),
+  const BudgetKategori(nama: 'Hiburan', icon: Icons.movie, terpakai: 300000, batas: 600000),
+];
+
+// ============================================
+// MODEL SAVING GOAL (#09)
+// ============================================
+class SavingGoal {
+  final String nama;
+  final IconData icon;
+  final double terkumpul;
+  final double target;
+  final Color warna;
+
+  const SavingGoal({
+    required this.nama,
+    required this.icon,
+    required this.terkumpul,
+    required this.target,
+    required this.warna,
+  });
+
+  double get persen => (terkumpul / target).clamp(0.0, 1.0);
+  int get persenBulat => (persen * 100).round();
+}
+
+final List<SavingGoal> savingGoals = [
+  const SavingGoal(nama: 'Emergency Fund', icon: Icons.shield, terkumpul: 9000000, target: 15000000, warna: AppColors.hijau),
+  const SavingGoal(nama: 'New Laptop', icon: Icons.laptop_mac, terkumpul: 12000000, target: 20000000, warna: Color(0xFF7C6FF0)),
+  const SavingGoal(nama: 'Bali Trip', icon: Icons.flight, terkumpul: 3000000, target: 10000000, warna: Color(0xFF3BA9F4)),
+  const SavingGoal(nama: 'New Phone', icon: Icons.phone_iphone, terkumpul: 7500000, target: 9000000, warna: Color(0xFFF5A623)),
+];
+
+// ============================================
 // APP UTAMA — atur tema terang/gelap
 // ============================================
 class DuitkuApp extends StatefulWidget {
@@ -145,8 +202,8 @@ class _MainNavigationState extends State<MainNavigation> {
         transaksiList: _transaksiList,
         onHapus: _hapusTransaksi,
       ),
-      PlaceholderPage(judul: 'Budget', isDark: isDark),
-      PlaceholderPage(judul: 'Statistik', isDark: isDark),
+      BudgetPage(isDark: isDark),
+      AnalyticsPage(isDark: isDark, transaksiList: _transaksiList),
       ProfilePage(isDark: isDark, onToggleTema: widget.onToggleTema),
     ];
 
@@ -267,11 +324,10 @@ class DashboardPage extends StatelessWidget {
     final textSoft = isDark ? AppColors.darkTextSoft : AppColors.lightTextSoft;
 
     return SafeArea(
-      child: Padding(
+      child: ListView(
+        physics: const ClampingScrollPhysics(),
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        children: [
             // Header sapaan
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -289,7 +345,16 @@ class DashboardPage extends StatelessWidget {
                     ),
                   ],
                 ),
-                Icon(Icons.notifications_none, color: text),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SavingsPage(isDark: isDark))),
+                      child: Icon(Icons.savings_outlined, color: text),
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(Icons.notifications_none, color: text),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -330,61 +395,67 @@ class DashboardPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Recent activity', style: TextStyle(color: text, fontSize: 18, fontWeight: FontWeight.bold)),
-                Text('See all', style: TextStyle(color: AppColors.hijau, fontSize: 14)),
+                GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TransactionHistoryPage(isDark: isDark, transaksiList: transaksiList))),
+                  child: Text('See all', style: const TextStyle(color: AppColors.hijau, fontSize: 14)),
+                ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // List transaksi
-            Expanded(
-              child: transaksiList.isEmpty
-                  ? Center(child: Text('Belum ada transaksi', style: TextStyle(color: textSoft)))
-                  : ListView.builder(
-                      itemCount: transaksiList.length,
-                      itemBuilder: (context, index) {
-                        final trx = transaksiList[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16)),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: (trx.isPemasukan ? AppColors.hijau : AppColors.merah).withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(trx.kategori.icon, color: trx.isPemasukan ? AppColors.hijau : AppColors.merah, size: 20),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(trx.judul, style: TextStyle(color: text, fontSize: 15, fontWeight: FontWeight.w600)),
-                                    const SizedBox(height: 2),
-                                    Text(trx.kategori.nama, style: TextStyle(color: textSoft, fontSize: 12)),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                '${trx.isPemasukan ? '+' : '-'}${_rp(trx.jumlah)}',
-                                style: TextStyle(color: trx.isPemasukan ? AppColors.hijau : AppColors.merah, fontWeight: FontWeight.bold),
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.delete_outline, color: textSoft, size: 20),
-                                onPressed: () => onHapus(index),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
+            // List transaksi (Column biasa di dalam ListView utama)
+            if (transaksiList.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 40),
+                child: Center(child: Text('Belum ada transaksi', style: TextStyle(color: textSoft))),
+              )
+            else
+              ...transaksiList.asMap().entries.map((entry) {
+                final index = entry.key;
+                final trx = entry.value;
+                return Container(
+                  key: ValueKey('trx_$index'),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(16)),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: (trx.isPemasukan ? AppColors.hijau : AppColors.merah).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(trx.kategori.icon, color: trx.isPemasukan ? AppColors.hijau : AppColors.merah, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(trx.judul, style: TextStyle(color: text, fontSize: 15, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(trx.kategori.nama, style: TextStyle(color: textSoft, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '${trx.isPemasukan ? '+' : '-'}${_rp(trx.jumlah)}',
+                        style: TextStyle(color: trx.isPemasukan ? AppColors.hijau : AppColors.merah, fontWeight: FontWeight.bold),
+                      ),
+                      GestureDetector(
+                        onTap: () => onHapus(index),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Icon(Icons.delete_outline, color: textSoft, size: 20),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
           ],
         ),
-      ),
     );
   }
 
@@ -553,6 +624,675 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(color: aktif ? warna : Colors.transparent, borderRadius: BorderRadius.circular(10)),
         child: Center(child: Text(label, style: TextStyle(color: aktif ? Colors.white : (widget.isDark ? AppColors.darkTextSoft : AppColors.lightTextSoft), fontWeight: FontWeight.bold))),
+      ),
+    );
+  }
+}
+
+// ============================================
+// HALAMAN BUDGET (#07)
+// ============================================
+class BudgetPage extends StatelessWidget {
+  final bool isDark;
+  const BudgetPage({super.key, required this.isDark});
+
+  String _rp(double a) => 'Rp ${a.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+
+  // Format singkat: 1.2jt, 800k
+  String _singkat(double a) {
+    if (a >= 1000000) {
+      final jt = a / 1000000;
+      return '${jt.toStringAsFixed(jt.truncateToDouble() == jt ? 0 : 1)}jt';
+    }
+    if (a >= 1000) return '${(a / 1000).toStringAsFixed(0)}k';
+    return a.toStringAsFixed(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final card = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final text = isDark ? AppColors.darkText : AppColors.lightText;
+    final textSoft = isDark ? AppColors.darkTextSoft : AppColors.lightTextSoft;
+
+    // Hitung total budget & terpakai
+    double totalBatas = 0;
+    double totalTerpakai = 0;
+    for (var b in budgetList) {
+      totalBatas += b.batas;
+      totalTerpakai += b.terpakai;
+    }
+    final sisa = totalBatas - totalTerpakai;
+    final persenTotal = (totalTerpakai / totalBatas).clamp(0.0, 1.0);
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Budget', style: TextStyle(color: text, fontSize: 24, fontWeight: FontWeight.bold)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(12)),
+                  child: Row(
+                    children: [
+                      Text('June', style: TextStyle(color: text, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 4),
+                      Icon(Icons.chevron_right, size: 18, color: textSoft),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Kartu spent overview (gelap, seperti desain)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1F26),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('SPENT OF ${_rp(totalBatas)}', style: const TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(_rp(totalTerpakai), style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+                      Text('${_rp(sisa)}\nleft to spend', textAlign: TextAlign.right, style: const TextStyle(color: AppColors.hijau, fontSize: 12)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Progress bar total
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: persenTotal,
+                      minHeight: 8,
+                      backgroundColor: Colors.white12,
+                      valueColor: const AlwaysStoppedAnimation(AppColors.hijau),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Section Categories
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Categories', style: TextStyle(color: text, fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Edit', style: const TextStyle(color: AppColors.hijau, fontSize: 14)),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // List budget per kategori
+            ...budgetList.map((b) {
+              final warnaBar = b.hampirHabis ? AppColors.merah : AppColors.hijau;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: warnaBar.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                          child: Icon(b.icon, color: warnaBar, size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(b.nama, style: TextStyle(color: text, fontSize: 15, fontWeight: FontWeight.w600))),
+                        Text('${_singkat(b.terpakai)} / ${_singkat(b.batas)}', style: TextStyle(color: textSoft, fontSize: 13)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: b.persen,
+                        minHeight: 6,
+                        backgroundColor: isDark ? Colors.white10 : Colors.black12,
+                        valueColor: AlwaysStoppedAnimation(warnaBar),
+                      ),
+                    ),
+                    if (b.hampirHabis) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, color: AppColors.merah, size: 14),
+                          const SizedBox(width: 4),
+                          Text('Almost over budget', style: const TextStyle(color: AppColors.merah, fontSize: 12)),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================
+// HALAMAN ANALYTICS / STATS (#08)
+// ============================================
+class AnalyticsPage extends StatelessWidget {
+  final bool isDark;
+  final List<Transaksi> transaksiList;
+  const AnalyticsPage({super.key, required this.isDark, required this.transaksiList});
+
+  String _rp(double a) => 'Rp ${a.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final card = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final text = isDark ? AppColors.darkText : AppColors.lightText;
+    final textSoft = isDark ? AppColors.darkTextSoft : AppColors.lightTextSoft;
+
+    // Hitung income & expense
+    double income = 0, expense = 0;
+    for (var t in transaksiList) {
+      if (t.isPemasukan) { income += t.jumlah; } else { expense += t.jumlah; }
+    }
+
+    // Breakdown pengeluaran per kategori
+    final Map<String, double> perKategori = {};
+    for (var t in transaksiList) {
+      if (!t.isPemasukan) {
+        perKategori[t.kategori.nama] = (perKategori[t.kategori.nama] ?? 0) + t.jumlah;
+      }
+    }
+    final totalExpense = expense == 0 ? 1 : expense;
+    final entries = perKategori.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+    // Data dummy untuk grafik mingguan (income vs expense per minggu)
+    final mingguan = [
+      {'label': 'W1', 'in': 0.6, 'out': 0.4},
+      {'label': 'W2', 'in': 0.8, 'out': 0.5},
+      {'label': 'W3', 'in': 0.5, 'out': 0.7},
+      {'label': 'W4', 'in': 0.9, 'out': 0.3},
+    ];
+
+    final warnaKategori = [AppColors.hijau, const Color(0xFF7C6FF0), const Color(0xFF3BA9F4), const Color(0xFFF5A623), AppColors.merah];
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Analytics', style: TextStyle(color: text, fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+
+            // Toggle Week/Month/Year (statis, visual)
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  _periodeBtn('Week', false, textSoft, text),
+                  _periodeBtn('Month', true, textSoft, text),
+                  _periodeBtn('Year', false, textSoft, text),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Grafik Income vs Expense (bar chart sederhana)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(20)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text('Income vs Expense', style: TextStyle(color: text, fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      _legend('In', AppColors.hijau, textSoft),
+                      const SizedBox(width: 12),
+                      _legend('Out', AppColors.merah, textSoft),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Bar chart manual
+                  SizedBox(
+                    height: 140,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: mingguan.map((m) {
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                _bar((m['in'] as double) * 120, AppColors.hijau),
+                                const SizedBox(width: 4),
+                                _bar((m['out'] as double) * 120, AppColors.merah),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(m['label'] as String, style: TextStyle(color: textSoft, fontSize: 11)),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Where it went - breakdown kategori
+            Text('Where it went', style: TextStyle(color: text, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(20)),
+              child: entries.isEmpty
+                  ? Text('Belum ada pengeluaran', style: TextStyle(color: textSoft))
+                  : Column(
+                      children: [
+                        Text('TOTAL', style: TextStyle(color: textSoft, fontSize: 11, letterSpacing: 1)),
+                        const SizedBox(height: 4),
+                        Text(_rp(expense), style: TextStyle(color: text, fontSize: 22, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 20),
+                        ...entries.asMap().entries.map((e) {
+                          final idx = e.key;
+                          final nama = e.value.key;
+                          final nilai = e.value.value;
+                          final persen = ((nilai / totalExpense) * 100).round();
+                          final warna = warnaKategori[idx % warnaKategori.length];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              children: [
+                                Container(width: 10, height: 10, decoration: BoxDecoration(color: warna, shape: BoxShape.circle)),
+                                const SizedBox(width: 10),
+                                Expanded(child: Text(nama, style: TextStyle(color: text, fontSize: 14))),
+                                Text('$persen%', style: TextStyle(color: textSoft, fontSize: 14, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _periodeBtn(String label, bool aktif, Color textSoft, Color text) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(color: aktif ? AppColors.hijau : Colors.transparent, borderRadius: BorderRadius.circular(10)),
+        child: Center(child: Text(label, style: TextStyle(color: aktif ? Colors.white : textSoft, fontWeight: FontWeight.w600))),
+      ),
+    );
+  }
+
+  Widget _legend(String label, Color warna, Color textSoft) {
+    return Row(children: [
+      Container(width: 10, height: 10, decoration: BoxDecoration(color: warna, shape: BoxShape.circle)),
+      const SizedBox(width: 4),
+      Text(label, style: TextStyle(color: textSoft, fontSize: 12)),
+    ]);
+  }
+
+  Widget _bar(double tinggi, Color warna) {
+    return Container(width: 12, height: tinggi, decoration: BoxDecoration(color: warna, borderRadius: BorderRadius.circular(4)));
+  }
+}
+
+// ============================================
+// HALAMAN SAVINGS GOALS (#09)
+// ============================================
+class SavingsPage extends StatelessWidget {
+  final bool isDark;
+  const SavingsPage({super.key, required this.isDark});
+
+  String _rp(double a) => 'Rp ${a.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final card = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final text = isDark ? AppColors.darkText : AppColors.lightText;
+    final textSoft = isDark ? AppColors.darkTextSoft : AppColors.lightTextSoft;
+
+    final utama = savingGoals.first;
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Savings Goals', style: TextStyle(color: text, fontSize: 24, fontWeight: FontWeight.bold)),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: AppColors.hijau, borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.add, color: Colors.white, size: 20),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Kartu goal utama (besar, dengan progress lingkaran)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [utama.warna, utama.warna.withOpacity(0.7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [Icon(utama.icon, color: Colors.white, size: 18), const SizedBox(width: 8), Text(utama.nama, style: const TextStyle(color: Colors.white, fontSize: 14))]),
+                        const SizedBox(height: 12),
+                        Text(_rp(utama.terkumpul), style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+                        Text('of ${_rp(utama.target)} goal', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  // Progress lingkaran
+                  SizedBox(
+                    width: 64, height: 64,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(width: 64, height: 64, child: CircularProgressIndicator(value: utama.persen, strokeWidth: 6, backgroundColor: Colors.white24, valueColor: const AlwaysStoppedAnimation(Colors.white))),
+                        Text('${utama.persenBulat}%', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            Text('All goals', style: TextStyle(color: text, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+
+            // List semua goal
+            ...savingGoals.map((g) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: g.warna.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                          child: Icon(g.icon, color: g.warna, size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(g.nama, style: TextStyle(color: text, fontSize: 15, fontWeight: FontWeight.w600)),
+                              Text('${_rp(g.terkumpul)} / ${_rp(g.target)}', style: TextStyle(color: textSoft, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        Text('${g.persenBulat}%', style: TextStyle(color: g.warna, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: g.persen,
+                        minHeight: 6,
+                        backgroundColor: isDark ? Colors.white10 : Colors.black12,
+                        valueColor: AlwaysStoppedAnimation(g.warna),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================
+// HALAMAN TRANSACTION HISTORY (#06)
+// ============================================
+class TransactionHistoryPage extends StatefulWidget {
+  final bool isDark;
+  final List<Transaksi> transaksiList;
+  const TransactionHistoryPage({super.key, required this.isDark, required this.transaksiList});
+
+  @override
+  State<TransactionHistoryPage> createState() => _TransactionHistoryPageState();
+}
+
+class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
+  String _filter = 'All'; // All / Income / Expense
+  String _cari = '';
+
+  String _rp(double a) => 'Rp ${a.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+
+  String _formatTanggal(DateTime t) {
+    const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    return '${t.day} ${bulan[t.month - 1]} ${t.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = widget.isDark ? AppColors.darkBg : AppColors.lightBg;
+    final card = widget.isDark ? AppColors.darkCard : AppColors.lightCard;
+    final text = widget.isDark ? AppColors.darkText : AppColors.lightText;
+    final textSoft = widget.isDark ? AppColors.darkTextSoft : AppColors.lightTextSoft;
+
+    // Filter transaksi sesuai pilihan + pencarian
+    List<Transaksi> hasil = widget.transaksiList.where((t) {
+      // filter tipe
+      if (_filter == 'Income' && !t.isPemasukan) return false;
+      if (_filter == 'Expense' && t.isPemasukan) return false;
+      // filter pencarian (judul atau kategori)
+      if (_cari.isNotEmpty) {
+        final q = _cari.toLowerCase();
+        if (!t.judul.toLowerCase().contains(q) && !t.kategori.nama.toLowerCase().contains(q)) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        title: Text('Transactions', style: TextStyle(color: text)),
+        iconTheme: IconThemeData(color: text),
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: TextField(
+              onChanged: (v) => setState(() => _cari = v),
+              style: TextStyle(color: text),
+              decoration: InputDecoration(
+                hintText: 'Search transactions',
+                hintStyle: TextStyle(color: textSoft),
+                prefixIcon: Icon(Icons.search, color: textSoft),
+                filled: true,
+                fillColor: card,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Filter pills
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                _filterPill('All', card, textSoft),
+                const SizedBox(width: 8),
+                _filterPill('Income', card, textSoft),
+                const SizedBox(width: 8),
+                _filterPill('Expense', card, textSoft),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // List transaksi (dikelompokkan per tanggal)
+          Expanded(
+            child: hasil.isEmpty
+                ? Center(child: Text('Tidak ada transaksi', style: TextStyle(color: textSoft)))
+                : ListView(
+                    physics: const ClampingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    children: _buildGrouped(hasil, card, text, textSoft),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Kelompokkan transaksi per tanggal jadi list widget
+  List<Widget> _buildGrouped(List<Transaksi> data, Color card, Color text, Color textSoft) {
+    // Urutkan dari terbaru
+    final sorted = [...data]..sort((a, b) => b.tanggal.compareTo(a.tanggal));
+
+    // Kelompokkan berdasar label hari
+    final Map<String, List<Transaksi>> grup = {};
+    for (var t in sorted) {
+      final label = _labelGrup(t.tanggal);
+      grup.putIfAbsent(label, () => []).add(t);
+    }
+
+    final List<Widget> widgets = [];
+    grup.forEach((label, list) {
+      // Hitung total hari itu (income - expense)
+      double total = 0;
+      for (var t in list) {
+        total += t.isPemasukan ? t.jumlah : -t.jumlah;
+      }
+      // Header grup
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: TextStyle(color: textSoft, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+            Text('${total >= 0 ? '+' : '-'}${_rp(total.abs())}',
+                style: TextStyle(color: total >= 0 ? AppColors.hijau : AppColors.merah, fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ));
+      // Baris transaksi
+      for (var t in list) {
+        widgets.add(_rowTransaksi(t, card, text, textSoft));
+      }
+    });
+    return widgets;
+  }
+
+  // Tentukan label grup: Hari Ini / Kemarin / tanggal
+  String _labelGrup(DateTime t) {
+    final now = DateTime.now();
+    final hariIni = DateTime(now.year, now.month, now.day);
+    final tgl = DateTime(t.year, t.month, t.day);
+    final selisih = hariIni.difference(tgl).inDays;
+    if (selisih == 0) return 'HARI INI';
+    if (selisih == 1) return 'KEMARIN';
+    return _formatTanggal(t).toUpperCase();
+  }
+
+  // Widget satu baris transaksi
+  Widget _rowTransaksi(Transaksi trx, Color card, Color text, Color textSoft) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (trx.isPemasukan ? AppColors.hijau : AppColors.merah).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(trx.kategori.icon, color: trx.isPemasukan ? AppColors.hijau : AppColors.merah, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(trx.judul, style: TextStyle(color: text, fontSize: 15, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(trx.kategori.nama, style: TextStyle(color: textSoft, fontSize: 12)),
+              ],
+            ),
+          ),
+          Text(
+            '${trx.isPemasukan ? '+' : '-'}${_rp(trx.jumlah)}',
+            style: TextStyle(color: trx.isPemasukan ? AppColors.hijau : AppColors.merah, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterPill(String label, Color card, Color textSoft) {
+    final aktif = _filter == label;
+    return GestureDetector(
+      onTap: () => setState(() => _filter = label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        decoration: BoxDecoration(
+          color: aktif ? AppColors.hijau : card,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(label, style: TextStyle(color: aktif ? Colors.white : textSoft, fontWeight: FontWeight.w600, fontSize: 13)),
       ),
     );
   }
