@@ -989,7 +989,9 @@ class SavingsPage extends StatelessWidget {
 
     final utama = savingGoals.first;
 
-    return SafeArea(
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+      body: SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -1092,6 +1094,7 @@ class SavingsPage extends StatelessWidget {
             }).toList(),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1619,7 +1622,7 @@ class _SplashPageState extends State<SplashPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => MainNavigation(isDark: widget.isDark, onToggleTema: widget.onToggleTema),
+            builder: (_) => OnboardingPage(isDark: widget.isDark, onToggleTema: widget.onToggleTema),
           ),
         );
       }
@@ -1676,6 +1679,179 @@ class _SplashPageState extends State<SplashPage> {
               style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 10, letterSpacing: 1.5),
             ),
             const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+// ============================================
+// HALAMAN ONBOARDING (#02)
+// ============================================
+class OnboardingPage extends StatefulWidget {
+  final bool isDark;
+  final VoidCallback onToggleTema;
+  const OnboardingPage({super.key, required this.isDark, required this.onToggleTema});
+
+  @override
+  State<OnboardingPage> createState() => _OnboardingPageState();
+}
+
+class _OnboardingPageState extends State<OnboardingPage> {
+  final _pageController = PageController();
+  int _halaman = 0;
+
+  // Isi 3 kartu onboarding
+  final List<Map<String, dynamic>> _slides = [
+    {
+      'icon': Icons.bar_chart_rounded,
+      'judul': 'See where your\nmoney goes',
+      'subtitle': 'Catat pemasukan & pengeluaran dalam hitungan detik. Duitku mengelompokkan semuanya otomatis.',
+    },
+    {
+      'icon': Icons.account_balance_wallet_rounded,
+      'judul': 'Set smart\nbudgets',
+      'subtitle': 'Atur jatah per kategori dan dapat peringatan sebelum kebablasan belanja.',
+    },
+    {
+      'icon': Icons.savings_rounded,
+      'judul': 'Reach your\nsavings goals',
+      'subtitle': 'Tetapkan target tabungan dan pantau progresnya sampai tercapai.',
+    },
+  ];
+
+  void _lanjut() {
+    if (_halaman < _slides.length - 1) {
+      _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    } else {
+      _masukApp();
+    }
+  }
+
+  void _masukApp() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => MainNavigation(isDark: widget.isDark, onToggleTema: widget.onToggleTema)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.lightBg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Tombol Skip di kanan atas
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: GestureDetector(
+                  onTap: _masukApp,
+                  child: Text('Skip', style: TextStyle(color: AppColors.lightTextSoft, fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ),
+
+            // Kartu swipeable
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: (i) => setState(() => _halaman = i),
+                itemCount: _slides.length,
+                itemBuilder: (context, index) {
+                  final slide = _slides[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Ilustrasi (kartu hijau dengan ikon)
+                        Container(
+                          width: 200,
+                          height: 200,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF2DBd78), Color(0xFF1F9D63)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(40),
+                            boxShadow: [
+                              BoxShadow(color: AppColors.hijau.withOpacity(0.3), blurRadius: 30, spreadRadius: 4),
+                            ],
+                          ),
+                          child: Icon(slide['icon'] as IconData, color: Colors.white, size: 80),
+                        ),
+                        const SizedBox(height: 48),
+                        // Judul
+                        Text(
+                          slide['judul'] as String,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppColors.lightText, fontSize: 28, fontWeight: FontWeight.bold, height: 1.2),
+                        ),
+                        const SizedBox(height: 16),
+                        // Subtitle
+                        Text(
+                          slide['subtitle'] as String,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppColors.lightTextSoft, fontSize: 15, height: 1.5),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // Dots indicator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_slides.length, (i) {
+                final aktif = i == _halaman;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: aktif ? 24 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: aktif ? AppColors.hijau : AppColors.lightTextSoft.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 32),
+
+            // Tombol Get Started / Next
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _lanjut,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.hijau,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Text(
+                    _halaman == _slides.length - 1 ? 'Get Started' : 'Next',
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Link sudah punya akun
+            GestureDetector(
+              onTap: _masukApp,
+              child: Text('I already have an account', style: TextStyle(color: AppColors.lightTextSoft, fontSize: 14)),
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
