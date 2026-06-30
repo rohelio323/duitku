@@ -153,7 +153,7 @@ class _DuitkuAppState extends State<DuitkuApp> {
         fontFamily: 'Roboto',
         brightness: _isDark ? Brightness.dark : Brightness.light,
       ),
-      home: MainNavigation(isDark: _isDark, onToggleTema: _toggleTema),
+      home: SplashPage(isDark: _isDark, onToggleTema: _toggleTema),
     );
   }
 }
@@ -347,6 +347,11 @@ class DashboardPage extends StatelessWidget {
                 ),
                 Row(
                   children: [
+                    GestureDetector(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => InsightsPage(isDark: isDark, transaksiList: transaksiList))),
+                      child: Icon(Icons.auto_awesome_outlined, color: text),
+                    ),
+                    const SizedBox(width: 16),
                     GestureDetector(
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SavingsPage(isDark: isDark))),
                       child: Icon(Icons.savings_outlined, color: text),
@@ -1299,6 +1304,183 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
 }
 
 // ============================================
+// HALAMAN INSIGHTS / AI (#10)
+// Insight dihitung dari data transaksi (rule-based, bukan LLM)
+// ============================================
+class InsightsPage extends StatelessWidget {
+  final bool isDark;
+  final List<Transaksi> transaksiList;
+  const InsightsPage({super.key, required this.isDark, required this.transaksiList});
+
+  String _rp(double a) => 'Rp ${a.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? AppColors.darkBg : AppColors.lightBg;
+    final card = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final text = isDark ? AppColors.darkText : AppColors.lightText;
+    final textSoft = isDark ? AppColors.darkTextSoft : AppColors.lightTextSoft;
+
+    // Hitung data buat insight
+    double income = 0, expense = 0;
+    final Map<String, double> perKategori = {};
+    for (var t in transaksiList) {
+      if (t.isPemasukan) {
+        income += t.jumlah;
+      } else {
+        expense += t.jumlah;
+        perKategori[t.kategori.nama] = (perKategori[t.kategori.nama] ?? 0) + t.jumlah;
+      }
+    }
+    final hemat = income - expense;
+
+    // Kategori pengeluaran terbesar
+    String kategoriTerbesar = '-';
+    double nilaiTerbesar = 0;
+    perKategori.forEach((k, v) {
+      if (v > nilaiTerbesar) { nilaiTerbesar = v; kategoriTerbesar = k; }
+    });
+
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        elevation: 0,
+        iconTheme: IconThemeData(color: text),
+        title: Row(
+          children: [
+            Text('Insights', style: TextStyle(color: text)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: AppColors.hijau, borderRadius: BorderRadius.circular(8)),
+              child: const Text('AI', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Kartu summary (gelap, gradient)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF1A1F26), Color(0xFF2A2F38)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('YOUR SUMMARY', style: TextStyle(color: AppColors.hijau, fontSize: 12, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Text(
+                    hemat >= 0
+                        ? 'Kamu berhasil hemat ${_rp(hemat)} bulan ini. Pengeluaran terbesar di $kategoriTerbesar. Pertahankan!'
+                        : 'Pengeluaran melebihi pemasukan ${_rp(hemat.abs())}. Pengeluaran terbesar di $kategoriTerbesar. Yuk lebih hemat!',
+                    style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.5),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            Text('Smart recommendations', style: TextStyle(color: text, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+
+            // Rekomendasi (dihasilkan dari data)
+            _rekomendasi(
+              Icons.lightbulb_outline,
+              'Pengeluaran terbesar: $kategoriTerbesar',
+              nilaiTerbesar > 0 ? 'Kamu habis ${_rp(nilaiTerbesar)} di $kategoriTerbesar. Coba kurangi 10% bulan depan.' : 'Belum ada data pengeluaran.',
+              card, text, textSoft,
+            ),
+            const SizedBox(height: 12),
+            _rekomendasi(
+              Icons.savings_outlined,
+              hemat >= 0 ? 'Kamu lagi on track' : 'Perlu lebih hemat',
+              hemat >= 0 ? 'Sisihkan ${_rp(hemat * 0.3)} ke tabungan untuk capai goal lebih cepat.' : 'Kurangi pengeluaran non-esensial minggu ini.',
+              card, text, textSoft,
+            ),
+            const SizedBox(height: 12),
+            _rekomendasi(
+              Icons.trending_up,
+              'Rasio tabungan',
+              income > 0 ? 'Kamu menabung ${((hemat / income) * 100).clamp(0, 100).toStringAsFixed(0)}% dari pemasukan. Target ideal 20%.' : 'Belum ada pemasukan tercatat.',
+              card, text, textSoft,
+            ),
+            const SizedBox(height: 24),
+
+            // Challenge gamification
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5A623).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFF5A623).withOpacity(0.4)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: const Color(0xFFF5A623), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.emoji_events, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Monthly Challenge', style: TextStyle(color: text, fontSize: 15, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text('No-spend weekend • 2 of 4 done', style: TextStyle(color: textSoft, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _rekomendasi(IconData icon, String judul, String isi, Color card, Color text, Color textSoft) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: AppColors.hijau.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: AppColors.hijau, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(judul, style: TextStyle(color: text, fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(isi, style: TextStyle(color: textSoft, fontSize: 13, height: 1.4)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================
 // HALAMAN PLACEHOLDER (Budget, Stats — nanti diisi)
 // ============================================
 class PlaceholderPage extends StatelessWidget {
@@ -1409,6 +1591,93 @@ class ProfilePage extends StatelessWidget {
           Expanded(child: Text(label, style: TextStyle(color: text, fontSize: 16))),
           Icon(Icons.chevron_right, color: textSoft),
         ],
+      ),
+    );
+  }
+}
+
+
+// ============================================
+// HALAMAN SPLASH (#01)
+// ============================================
+class SplashPage extends StatefulWidget {
+  final bool isDark;
+  final VoidCallback onToggleTema;
+  const SplashPage({super.key, required this.isDark, required this.onToggleTema});
+
+  @override
+  State<SplashPage> createState() => _SplashPageState();
+}
+
+class _SplashPageState extends State<SplashPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Auto pindah ke app setelah 2.5 detik
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MainNavigation(isDark: widget.isDark, onToggleTema: widget.onToggleTema),
+          ),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F1419),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Spacer(),
+            // Logo dompet dalam kotak hijau bercahaya
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.hijau,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.hijau.withOpacity(0.4),
+                    blurRadius: 30,
+                    spreadRadius: 4,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 48),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'DuitKu',
+              style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 1),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Atur duit, tenang hati',
+              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14),
+            ),
+            const Spacer(),
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(AppColors.hijau),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'SECURED BY 256-BIT ENCRYPTION',
+              style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 10, letterSpacing: 1.5),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
